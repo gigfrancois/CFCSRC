@@ -97,7 +97,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   // Start HRTIM
-  HAL_HRTIM_WaveformOutputStart(&hhrtim1, HRTIM_OUTPUT_TA1);
+  //HAL_HRTIM_WaveformOutputStart(&hhrtim1, HRTIM_OUTPUT_TA1);
   HAL_HRTIM_WaveformCounterStart_IT(&hhrtim1, HRTIM_TIMERID_TIMER_A);
 
   /* USER CODE END 2 */
@@ -187,7 +187,7 @@ static void MX_HRTIM1_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-  pTimeBaseCfg.Period = 200;
+  pTimeBaseCfg.Period = 800;
   pTimeBaseCfg.RepetitionCounter = 0x00;
   pTimeBaseCfg.PrescalerRatio = HRTIM_PRESCALERRATIO_DIV1;
   pTimeBaseCfg.Mode = HRTIM_MODE_CONTINUOUS;
@@ -196,7 +196,7 @@ static void MX_HRTIM1_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-  pTimerCfg.InterruptRequests = HRTIM_TIM_IT_CMP1;
+  pTimerCfg.InterruptRequests = HRTIM_TIM_IT_UPD;
   pTimerCfg.DMARequests = HRTIM_TIM_DMA_NONE;
   pTimerCfg.DMASrcAddress = 0x0000;
   pTimerCfg.DMADstAddress = 0x0000;
@@ -222,7 +222,7 @@ static void MX_HRTIM1_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-  pCompareCfg.CompareValue = 100;
+  pCompareCfg.CompareValue = 400;
   if (HAL_HRTIM_WaveformCompareConfig(&hhrtim1, HRTIM_TIMERINDEX_TIMER_A, HRTIM_COMPAREUNIT_1, &pCompareCfg) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);

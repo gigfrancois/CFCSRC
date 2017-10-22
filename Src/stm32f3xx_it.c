@@ -38,6 +38,28 @@
 /* USER CODE BEGIN 0 */
 #include "stm32f3xx_hal_gpio.h"
 
+typedef enum {
+	WAITING_FOR_BURST_SIGNAL,
+	BURST_IN_PROCESS,
+	BURST_COMPLETED
+} BurstStates;
+
+int gBurstCycles = 10;
+BurstStates gBurstState = WAITING_FOR_BURST_SIGNAL;
+int gCycleCounter = 0;
+
+BurstStates getBurstState(BurstStates lastBurstState) {
+	BurstStates nextState = lastBurstState;
+
+	if(lastBurstState == WAITING_FOR_BURST_SIGNAL && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_6) == GPIO_PIN_SET) {
+		nextState = BURST_IN_PROCESS;
+	}
+	else if(lastBurstState == BURST_COMPLETED && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_6) == GPIO_PIN_RESET) {
+		nextState = WAITING_FOR_BURST_SIGNAL;
+	}
+
+	return nextState;
+}
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -163,37 +185,18 @@ void PendSV_Handler(void)
   /* USER CODE END PendSV_IRQn 1 */
 }
 
-
-typedef enum {
-	WAITING_FOR_BURST_SIGNAL,
-	BURST_IN_PROCESS,
-	BURST_COMPLETED
-} BurstStates;
-
-BurstStates getBurstState(BurstStates lastBurstState) {
-	BurstStates nextState = lastBurstState;
-
-	if(lastBurstState == WAITING_FOR_BURST_SIGNAL && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_6) == GPIO_PIN_SET) {
-		nextState = BURST_IN_PROCESS;
-	}
-	else if(lastBurstState == BURST_COMPLETED && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_6) == GPIO_PIN_RESET) {
-		nextState = WAITING_FOR_BURST_SIGNAL;
-	}
-
-	return nextState;
-}
-
 /**
 * @brief This function handles System tick timer.
 */
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
-  /* USER CODE END SysTick_IRQn 0 */
 
+  gBurstState = getBurstState(gBurstState);
+
+  /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   HAL_SYSTICK_IRQHandler();
-
   /* USER CODE BEGIN SysTick_IRQn 1 */
 
   /* USER CODE END SysTick_IRQn 1 */
@@ -226,17 +229,20 @@ void HRTIM1_TIMA_IRQHandler(void)
 {
   /* USER CODE BEGIN HRTIM1_TIMA_IRQn 0 */
 	// The burst PWM output is enable when the PB6 GPIO is pulled high
-	static BurstStates burstState = WAITING_FOR_BURST_SIGNAL;
-	static int cycleCounter = 0;
 
-	burstState = getBurstState(burstState);
+	if (gBurstState == BURST_IN_PROCESS) {
 
-	if (burstState == BURST_IN_PROCESS) {
-		cycleCounter++;
-		if (cycleCounter >= 10) {
+		if (gCycleCounter == 0) {
+			HAL_HRTIM_WaveformOutputStart(&hhrtim1, HRTIM_OUTPUT_TA1);
+		}
+
+		gCycleCounter++;
+
+		if (gCycleCounter >= gBurstCycles) {
 	        HAL_HRTIM_WaveformOutputStop(&hhrtim1, HRTIM_OUTPUT_TA1);
-	        HAL_HRTIM_WaveformCounterStop_IT(&hhrtim1, HRTIM_TIMERID_TIMER_A);
-	        burstState = BURST_COMPLETED;
+	        //HAL_HRTIM_WaveformCounterStop_IT(&hhrtim1, HRTIM_TIMERID_TIMER_A);
+	        gBurstState = BURST_COMPLETED;
+	        gCycleCounter = 0;
 		}
 	}
 
