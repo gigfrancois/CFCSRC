@@ -41,6 +41,14 @@
 
 /* USER CODE BEGIN Includes */
 
+// HRTIM constants and macros
+#define kSystemClock 64000000
+#define kTimerClockPrescale 1
+#define kTimerPllMult 16
+#define kTimerTicksPerSecond kSystemClock*kTimerClockPrescale
+#define getTicksFromFreq(freq) (kTimerTicksPerSecond/freq)
+#define getTicksFromDutyCycle(freq, duty) duty*getTicksFromFreq(freq)
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -64,6 +72,19 @@ void HAL_HRTIM_MspPostInit(HRTIM_HandleTypeDef *hhrtim);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+
+uint32_t hrtim1_per_register = 0;
+uint32_t hrtim1_cmp1_register = 0;
+
+void timerSetFrequency(uint32_t freq) {
+	HRTIM1->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_A].PERxR = getTicksFromFreq(freq);
+	hrtim1_per_register = HRTIM1->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_A].PERxR;
+}
+
+void timerSetdutyCycle(uint32_t duty, uint32_t freq) {
+	HRTIM1->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_A].CMP1xR = (duty*getTicksFromFreq(freq))/(1000*100);
+	hrtim1_cmp1_register = HRTIM1->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_A].CMP1xR;
+}
 
 /* USER CODE END 0 */
 
@@ -98,8 +119,9 @@ int main(void)
 
   // Start HRTIM
   //HAL_HRTIM_WaveformOutputStart(&hhrtim1, HRTIM_OUTPUT_TA1);
-  HAL_HRTIM_WaveformCounterStart_IT(&hhrtim1, HRTIM_TIMERID_TIMER_A);
-
+  //HAL_HRTIM_WaveformCounterStart_IT(&hhrtim1, HRTIM_TIMERID_TIMER_A);
+  timerSetFrequency(300000);
+  timerSetdutyCycle(50*1000, 300000);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -131,7 +153,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSICalibrationValue = 16;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL16;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -143,10 +165,10 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
@@ -196,7 +218,7 @@ static void MX_HRTIM1_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-  pTimerCfg.InterruptRequests = HRTIM_TIM_IT_UPD;
+  pTimerCfg.InterruptRequests = HRTIM_TIM_IT_RST1;
   pTimerCfg.DMARequests = HRTIM_TIM_DMA_NONE;
   pTimerCfg.DMASrcAddress = 0x0000;
   pTimerCfg.DMADstAddress = 0x0000;
@@ -262,22 +284,32 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(D1_GPIO_Port, D1_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(D2_GPIO_Port, D2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_SET);
 
-  /*Configure GPIO pin : PA4 */
-  GPIO_InitStruct.Pin = GPIO_PIN_4;
+  /*Configure GPIO pin : D1_Pin */
+  GPIO_InitStruct.Pin = D1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(D1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : D2_Pin */
+  GPIO_InitStruct.Pin = D2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(D2_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB6 */
   GPIO_InitStruct.Pin = GPIO_PIN_6;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB7 */

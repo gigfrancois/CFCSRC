@@ -46,6 +46,11 @@
 
 /* Private define ------------------------------------------------------------*/
 
+#define D1_Pin GPIO_PIN_4
+#define D1_GPIO_Port GPIOA
+#define D2_Pin GPIO_PIN_5
+#define D2_GPIO_Port GPIOA
+
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

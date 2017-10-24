@@ -44,7 +44,7 @@ typedef enum {
 	BURST_COMPLETED
 } BurstStates;
 
-int gBurstCycles = 10;
+int gBurstCycles = 5;
 BurstStates gBurstState = WAITING_FOR_BURST_SIGNAL;
 int gCycleCounter = 0;
 
@@ -191,8 +191,17 @@ void PendSV_Handler(void)
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
-
+  BurstStates lastState = gBurstState;
   gBurstState = getBurstState(gBurstState);
+
+  if (gBurstState  == BURST_IN_PROCESS && lastState == WAITING_FOR_BURST_SIGNAL) {
+	  //HAL_HRTIM_WaveformOutputStart(&hhrtim1, HRTIM_OUTPUT_TA1);
+	  HRTIM1->sCommonRegs.OENR |= HRTIM_OUTPUT_TA1;
+
+	  //HAL_HRTIM_WaveformCounterStart_IT(&hhrtim1, HRTIM_TIMERID_TIMER_A);
+	  HRTIM1->sTimerxRegs[HRTIM_TIMERINDEX_TIMER_A].TIMxDIER |= HRTIM_TIM_IT_RST1;
+	  HRTIM1->sMasterRegs.MCR |= HRTIM_TIMERID_TIMER_A;
+  }
 
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
@@ -228,27 +237,27 @@ void RCC_IRQHandler(void)
 void HRTIM1_TIMA_IRQHandler(void)
 {
   /* USER CODE BEGIN HRTIM1_TIMA_IRQn 0 */
-	// The burst PWM output is enable when the PB6 GPIO is pulled high
+	//if (__HAL_HRTIM_TIMER_GET_ITSTATUS(&hhrtim1, HRTIM_TIMERINDEX_TIMER_A, HRTIM_TIM_IT_RST1) == SET) {
+	    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
 
-	if (gBurstState == BURST_IN_PROCESS) {
-
-		if (gCycleCounter == 0) {
-			HAL_HRTIM_WaveformOutputStart(&hhrtim1, HRTIM_OUTPUT_TA1);
-		}
-
-		gCycleCounter++;
-
-		if (gCycleCounter >= gBurstCycles) {
-	        HAL_HRTIM_WaveformOutputStop(&hhrtim1, HRTIM_OUTPUT_TA1);
-	        //HAL_HRTIM_WaveformCounterStop_IT(&hhrtim1, HRTIM_TIMERID_TIMER_A);
-	        gBurstState = BURST_COMPLETED;
-	        gCycleCounter = 0;
-		}
-	}
+	    if (gBurstState == BURST_IN_PROCESS) {
+		    if (gCycleCounter == (gBurstCycles - 1)) {
+	            HAL_HRTIM_WaveformOutputStop(&hhrtim1, HRTIM_OUTPUT_TA1);
+	            HAL_HRTIM_WaveformCounterStop_IT(&hhrtim1, HRTIM_TIMERID_TIMER_A);
+	            gBurstState = BURST_COMPLETED;
+	            gCycleCounter = 0;
+		    }
+		    else {
+		        gCycleCounter++;
+		    }
+	    }
 
   /* USER CODE END HRTIM1_TIMA_IRQn 0 */
-  HAL_HRTIM_IRQHandler(&hhrtim1,HRTIM_TIMERINDEX_TIMER_A);
+  //HAL_HRTIM_IRQHandler(&hhrtim1,HRTIM_TIMERINDEX_TIMER_A);
   /* USER CODE BEGIN HRTIM1_TIMA_IRQn 1 */
+      __HAL_HRTIM_TIMER_CLEAR_IT(&hhrtim1, HRTIM_TIMERINDEX_TIMER_A, HRTIM_TIM_IT_RST1);
+      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+	//}
 
   /* USER CODE END HRTIM1_TIMA_IRQn 1 */
 }
